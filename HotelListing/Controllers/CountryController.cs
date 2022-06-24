@@ -24,46 +24,32 @@ public class CountryController : ControllerBase
         _mapper = mapper;
     }
 
+    #region Get Countries
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> GetCountries()
+    public async Task<IActionResult> GetCountries([FromQuery] RequestParams requestParams)
     {
-        try
-        {
-            var countries = await _unitOfWork.Countires.GetAll();
-            var results = _mapper.Map<IList<CountryDTO>>(countries);
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to get countries: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        var countries = await _unitOfWork.Countires.GetPagedList(requestParams);
+        var results = _mapper.Map<IList<CountryDTO>>(countries);
+        return Ok(results);
     }
+    #endregion
 
-    [HttpGet("{id:int}", Name ="GetCountry")]
+    #region Get Country
+    [HttpGet("{id:int}", Name = "GetCountry")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetCountry(int id)
     {
-        try
-        {
-            var country = await _unitOfWork.Countires.Get(
-                q => q.Id == id, new List<string> { "Hotels" });
-            var result = _mapper.Map<CountryDTO>(country);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to get country: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        var country = await _unitOfWork.Countires.Get(
+            q => q.Id == id, new List<string> { "Hotels" });
+        var result = _mapper.Map<CountryDTO>(country);
+        return Ok(result);
     }
+    #endregion
 
-
+    #region Create Country
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -80,22 +66,15 @@ public class CountryController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        try
-        {
-            var country = _mapper.Map<Country>(countryDTO);
-            await _unitOfWork.Countires.Insert(country);
-            await _unitOfWork.Save();
+        var country = _mapper.Map<Country>(countryDTO);
+        await _unitOfWork.Countires.Insert(country);
+        await _unitOfWork.Save();
 
-            return CreatedAtRoute("GetCountry", new { id = country.Id }, country);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Something Went Wrong in the {nameof(CreateCountry)}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        return CreatedAtAction("GetCountry", new { id = country.Id }, country);
     }
+    #endregion
 
+    #region Update Country
     [Authorize(Roles = "Admin")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -106,7 +85,7 @@ public class CountryController : ControllerBase
     {
         _logger.LogInformation($"attempting to Update Country with {id} and {countryDTO}", countryDTO);
 
-        if(!ModelState.IsValid || id < 0)
+        if (!ModelState.IsValid || id < 0)
         {
             _logger.LogError($"Invalid UPDATE attempt in {nameof(UpdateCountry)}");
             return BadRequest(ModelState);
@@ -115,7 +94,7 @@ public class CountryController : ControllerBase
         try
         {
             var country = await _unitOfWork.Countires.Get(q => q.Id == id);
-            if(country == null)
+            if (country == null)
             {
                 _logger.LogError($"Invalid UPDATE attempt in {nameof(UpdateCountry)}");
                 return BadRequest("Submitted data is invalid!");
@@ -133,8 +112,10 @@ public class CountryController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError,
                 "Internal Server Error. Please Try Agian Later!");
         }
-    }
+    } 
+    #endregion
 
+    #region Delete Country
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -151,25 +132,17 @@ public class CountryController : ControllerBase
             return BadRequest();
         }
 
-        try
+        var country = await _unitOfWork.Countires.Get(q => q.Id == id);
+        if (country == null)
         {
-            var country = await _unitOfWork.Countires.Get(q => q.Id == id);
-            if (country == null)
-            {
-                _logger.LogError($"Invalid DELETE attempt in {nameof(DeleteCountry)}");
-                return BadRequest("Submitted data is invalid!");
-            }
-
-            await _unitOfWork.Countires.Delete(id);
-            await _unitOfWork.Save();
-
-            return NoContent();
+            _logger.LogError($"Invalid DELETE attempt in {nameof(DeleteCountry)}");
+            return BadRequest("Submitted data is invalid!");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to DELETE country: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
-    }
+
+        await _unitOfWork.Countires.Delete(id);
+        await _unitOfWork.Save();
+
+        return NoContent();
+    } 
+    #endregion
 }

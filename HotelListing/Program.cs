@@ -3,8 +3,8 @@ using HotelListing.Configurations;
 using HotelListing.IRepository;
 using HotelListing.Repository;
 using HotelListing.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
 using Serilog;
 using Serilog.Events;
 
@@ -15,8 +15,16 @@ builder.Host.UseSerilog();
 
 // Add services to the container.
 
-builder.Services.AddControllers().AddNewtonsoftJson(
-    op=> op.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+builder.Services.AddControllers(config =>
+    {
+        config.CacheProfiles.Add("120SecondDuration", new CacheProfile
+        {
+            Duration = 120
+        });
+    }).AddNewtonsoftJson(
+        op=> op.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+
+builder.Services.ConfigureVersioning();
 
 builder.Services.AddCors(
     options => options.AddPolicy("AllowAll", p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader())
@@ -29,6 +37,10 @@ builder.Services.AddScoped<IAuthManager, AuthManager>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddMemoryCache();
+
+builder.Services.ConfigureHttpCacheHeaders();
 
 builder.Services.AddAuthentication();
 builder.Services.ConfigureIdentity();
@@ -47,9 +59,15 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.ConfigureExceptionHandler();
+
 app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
+
+app.UseResponseCaching();
+app.UseHttpCacheHeaders();
 
 app.UseAuthentication();
 app.UseAuthorization();

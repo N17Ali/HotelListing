@@ -21,45 +21,32 @@ public class HotelController : ControllerBase
         _mapper = mapper;
     }
 
+    #region Get Hotels
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetHotels()
     {
-        try
-        {
-            var hotels = await _unitOfWork.Hotels.GetAll();
-            var results = _mapper.Map<IList<HotelDTO>>(hotels);
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to get hotels: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        var hotels = await _unitOfWork.Hotels.GetAll();
+        var results = _mapper.Map<IList<HotelDTO>>(hotels);
+        return Ok(results);
     }
+    #endregion
 
-    [HttpGet("{id:int}", Name="GetHotel")]
+    #region Get Hotel
+    [HttpGet("{id:int}", Name = "GetHotel")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetHotel(int id)
     {
-        try
-        {
-            var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id,
-                new List<string> { "Country" });
-            var result = _mapper.Map<HotelDTO>(hotel);
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to get hotel: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id,
+            new List<string> { "Country" });
+        var result = _mapper.Map<HotelDTO>(hotel);
+        return Ok(result);
     }
+    #endregion
 
+    #region Create Hotel
     [Authorize(Roles = "Admin")]
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -76,22 +63,15 @@ public class HotelController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        try
-        {
-            var hotel = _mapper.Map<Hotel>(hotelDTO);
-            await _unitOfWork.Hotels.Insert(hotel);
-            await _unitOfWork.Save();
+        var hotel = _mapper.Map<Hotel>(hotelDTO);
+        await _unitOfWork.Hotels.Insert(hotel);
+        await _unitOfWork.Save();
 
-            return CreatedAtAction("GetHotel", new {id = hotel.Id}, hotel);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Something Went Wrong in the {nameof(CreateHotel)}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+        return CreatedAtAction("GetHotel", new { id = hotel.Id }, hotel);
     }
+    #endregion
 
+    #region Update Hotel
     [Authorize(Roles = "Admin")]
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -101,37 +81,29 @@ public class HotelController : ControllerBase
     public async Task<IActionResult> UpdateHotel(int id, [FromBody] UpdateHotelDTO hotelDTO)
     {
         _logger.LogInformation($"attempting to Update Hotel with {id} and {hotelDTO}", hotelDTO);
-        
-        if(!ModelState.IsValid || id < 1)
+
+        if (!ModelState.IsValid || id < 1)
         {
             _logger.LogError($"Invalid UPDATE attempt in {nameof(UpdateHotel)}");
             return BadRequest(ModelState);
         }
 
-        try
+        var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id);
+        if (hotel == null)
         {
-            var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id);
-            if (hotel == null)
-            {
-                _logger.LogError($"Invalid UPDATE attempt in {nameof(UpdateHotel)}");
-                return BadRequest("Submitted data is invalid!");
-            }
-
-            _mapper.Map(hotelDTO, hotel);
-            _unitOfWork.Hotels.Update(hotel);
-            await _unitOfWork.Save();
-
-            return NoContent();
-
+            _logger.LogError($"Invalid UPDATE attempt in {nameof(UpdateHotel)}");
+            return BadRequest("Submitted data is invalid!");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to Update hotel: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
+
+        _mapper.Map(hotelDTO, hotel);
+        _unitOfWork.Hotels.Update(hotel);
+        await _unitOfWork.Save();
+
+        return NoContent();
     }
+    #endregion
 
+    #region Delete Hotel
     [Authorize(Roles = "Admin")]
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -142,31 +114,23 @@ public class HotelController : ControllerBase
     {
         _logger.LogInformation($"attempting to DELETE hotel with id: {id}");
 
-        if(id < 1)
+        if (id < 1)
         {
             _logger.LogError($"Invalid DELETE attempt in {nameof(DeleteHotel)}");
             return BadRequest();
         }
 
-        try
+        var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id);
+        if (hotel == null)
         {
-            var hotel = await _unitOfWork.Hotels.Get(q => q.Id == id);
-            if(hotel == null)
-            {
-                _logger.LogError($"Invalid DELETE attempt in {nameof(DeleteHotel)}");
-                return BadRequest("Submitted data is invalid!");
-            }
-
-            await _unitOfWork.Hotels.Delete(id);
-            await _unitOfWork.Save();
-
-            return NoContent();
+            _logger.LogError($"Invalid DELETE attempt in {nameof(DeleteHotel)}");
+            return BadRequest("Submitted data is invalid!");
         }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Failed to DELETE hotel: {ex}");
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                "Internal Server Error. Please Try Agian Later!");
-        }
-    }
+
+        await _unitOfWork.Hotels.Delete(id);
+        await _unitOfWork.Save();
+
+        return NoContent();
+    } 
+    #endregion
 }

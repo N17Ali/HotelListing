@@ -25,6 +25,7 @@ public class AccountController : ControllerBase
         _authManager = authManager;
     }
 
+    #region Register
     [HttpPost]
     [Route("Register")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
@@ -37,31 +38,25 @@ public class AccountController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-        try
-        {
-            var user = _mapper.Map<ApiUser>(userDTO);
-            user.UserName = userDTO.Email;
-            var result = await _userManager.CreateAsync(user, userDTO.Password);
-            
-            if(!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(error.Code, error.Description);
-                }
-                return BadRequest(ModelState);
-            }
-            await _userManager.AddToRolesAsync(user, userDTO.Roles);
-            return Accepted();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Failed to register user: {nameof(Register)}");
-            return Problem($"Failed to register user: {nameof(Register)}",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
-    }
 
+        var user = _mapper.Map<ApiUser>(userDTO);
+        user.UserName = userDTO.Email;
+        var result = await _userManager.CreateAsync(user, userDTO.Password);
+
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError(error.Code, error.Description);
+            }
+            return BadRequest(ModelState);
+        }
+        await _userManager.AddToRolesAsync(user, userDTO.Roles);
+        return Accepted();
+    }
+    #endregion
+
+    #region Login
     [HttpPost]
     [Route("Login")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
@@ -70,27 +65,19 @@ public class AccountController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginUserDTO userDTO)
     {
+
         _logger.LogInformation($"Login Attempt for {userDTO.Email}");
 
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
-
-        try
+        if (!await _authManager.ValidateUser(userDTO))
         {
-           if(!await _authManager.ValidateUser(userDTO))
-            {
-                return Unauthorized();
-            }
+            return Unauthorized();
+        }
 
-            return Accepted( new { Token = await _authManager.CreateToken() });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Failed to Login user: {nameof(Login)}");
-            return Problem($"Failed to Login user: {nameof(Login)}",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
-    }
+        return Accepted(new { Token = await _authManager.CreateToken() });
+    } 
+    #endregion
 }
